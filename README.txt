@@ -1,0 +1,1 @@
+Placeholder assets folder created automatically.

@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StemForge — Mix Console</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0a0a12;
+    color: #e0e0e0;
+    font-family: -apple-system, 'SF Pro Display', Helvetica, sans-serif;
+    min-height: 100vh;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 28px;
+    border-bottom: 0.5px solid #1e1e2e;
+    background: #0d0d1a;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 18px;
+    font-weight: 500;
+    letter-spacing: -0.3px;
+  }
+
+  .logo-icon {
+    width: 32px;
+    height: 32px;
+    background: #2a1a6e;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .wave-mini {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 16px;
+  }
+
+  .wave-mini span {
+    background: #9a7aff;
+    width: 3px;
+    border-radius: 2px;
+  }
+
+  /* Generate panel */
+  .generate-bar {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding: 16px 28px;
+    background: #0d0d1a;
+    border-bottom: 0.5px solid #1e1e2e;
+    flex-wrap: wrap;
+  }
+
+  .generate-bar input[type=text] {
+    flex: 1;
+    min-width: 200px;
+    background: #141420;
+    border: 0.5px solid #2a2a40;
+    color: #e0e0e0;
+    border-radius: 8px;
+    padding: 9px 14px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .generate-bar input:focus { border-color: #6a4adf; }
+
+  .generate-bar select {
+    background: #141420;
+    border: 0.5px solid #2a2a40;
+    color: #e0e0e0;
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  .generate-bar input[type=number] {
+    width: 70px;
+    background: #141420;
+    border: 0.5px solid #2a2a40;
+    color: #e0e0e0;
+    border-radius: 8px;
+    padding: 9px 10px;
+    font-size: 13px;
+    text-align: center;
+  }
+
+  .btn-generate {
+    background: #5a3aaf;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+  }
+
+  .btn-generate:hover { background: #6a4abf; }
+  .btn-generate:disabled { background: #2a2a40; color: #666; cursor: not-allowed; }
+
+  .status-badge {
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    background: #1e1e30;
+    color: #888;
+  }
+
+  .status-badge.active { background: #1a2a1a; color: #4adf7a; }
+  .status-badge.error  { background: #2a1a1a; color: #df4a4a; }
+
+  /* Mixer */
+  .mixer {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px;
+    background: #1a1a28;
+    padding: 1px;
+  }
+
+  .channel {
+    background: #0f0f1e;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px 12px 20px;
+    gap: 10px;
+    min-height: 420px;
+  }
+
+  .ch-name {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: #aaa;
+  }
+
+  .waveform-canvas {
+    width: 100%;
+    height: 80px;
+    border-radius: 6px;
+    background: #141420;
+    cursor: pointer;
+  }
+
+  /* VU meter */
+  .vu-wrap {
+    display: flex;
+    gap: 3px;
+    height: 100px;
+    align-items: flex-end;
+  }
+
+  .vu-bar {
+    width: 10px;
+    height: 100%;
+    background: #1a1a28;
+    border-radius: 3px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .vu-fill {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    background: #4adf7a;
+    border-radius: 3px;
+    transition: height 0.05s;
+  }
+
+  .vu-peak {
+    position: absolute;
+    width: 100%;
+    height: 3px;
+    background: #df4a4a;
+    border-radius: 2px;
+    transition: bottom 0.3s;
+  }
+
+  /* Fader */
+  .fader-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+  }
+
+  input[type=range].fader {
+    -webkit-appearance: slider-vertical;
+    writing-mode: vertical-lr;
+    direction: rtl;
+    width: 28px;
+    height: 120px;
+    cursor: pointer;
+    accent-color: #7a5adf;
+  }
+
+  .fader-val {
+    font-size: 11px;
+    color: #666;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Buttons */
+  .ch-buttons { display: flex; gap: 6px; }
+
+  .btn-mute, .btn-solo {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 0.5px solid #2a2a40;
+    background: #141420;
+    color: #666;
+    cursor: pointer;
+    transition: all 0.1s;
+  }
+
+  .btn-mute.active  { background: #4a1a1a; border-color: #df4a4a; color: #df4a4a; }
+  .btn-solo.active  { background: #1a3a1a; border-color: #4adf7a; color: #4adf7a; }
+
+  .btn-load {
+    font-size: 10px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 0.5px solid #2a2a40;
+    background: #141420;
+    color: #888;
+    cursor: pointer;
+    transition: all 0.1s;
+  }
+
+  .btn-load:hover { border-color: #5a3aaf; color: #9a7aff; }
+
+  /* Transport */
+  .transport {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 28px;
+    background: #0d0d1a;
+    border-top: 0.5px solid #1e1e2e;
+  }
+
+  .btn-transport {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: 0.5px solid #2a2a40;
+    background: #141420;
+    color: #e0e0e0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    transition: all 0.1s;
+  }
+
+  .btn-transport:hover { background: #1e1e30; border-color: #5a3aaf; }
+  .btn-transport.playing { background: #2a1a5e; border-color: #7a5adf; }
+
+  .progress-wrap {
+    flex: 1;
+    height: 4px;
+    background: #1e1e2e;
+    border-radius: 2px;
+    cursor: pointer;
+    position: relative;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: #7a5adf;
+    border-radius: 2px;
+    pointer-events: none;
+  }
+
+  .time-display {
+    font-size: 12px;
+    color: #666;
+    font-variant-numeric: tabular-nums;
+    min-width: 80px;
+    text-align: right;
+  }
+
+  .btn-export {
+    background: #1e3a1e;
+    border: 0.5px solid #4adf7a;
+    color: #4adf7a;
+    border-radius: 6px;
+    padding: 7px 14px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.1s;
+  }
+
+  .btn-export:hover { background: #2a4a2a; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">
+      <div class="wave-mini">
+        <span style="height:5px"></span>
+        <span style="height:10px"></span>
+        <span style="height:16px"></span>
+        <span style="height:12px"></span>
+        <span style="height:7px"></span>
+      </div>
+    </div>
+    StemForge
+  </div>
+  <span class="status-badge" id="status-badge">idle</span>
+</header>
+
+<div class="generate-bar">
+  <input type="text" id="prompt-input" placeholder="es: lo-fi hip hop rainy night, cinematic orchestral tension...">
+  <select id="backend-select">
+    <option value="stable-audio">Stable Audio</option>
+    <option value="musicgen">MusicGen</option>
+    <option value="audioldm2">AudioLDM2</option>
+    <option value="ensemble">Ensemble ★</option>
+  </select>
+  <input type="number" id="duration-input" value="30" min="5" max="300" title="Duration (seconds)">
+  <span style="font-size:12px;color:#555">sec</span>
+  <button class="btn-generate" id="btn-gen" onclick="startGenerate()">Generate</button>
+</div>
+
+<div class="mixer" id="mixer">
+  <!-- Channels injected by JS -->
+</div>
+
+<div class="transport">
+  <button class="btn-transport" id="btn-play" onclick="togglePlay()" title="Play/Pause">▶</button>
+  <button class="btn-transport" onclick="stopAll()" title="Stop">■</button>
+  <div class="progress-wrap" id="progress-wrap" onclick="seekTo(event)">
+    <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+  </div>
+  <div class="time-display" id="time-display">0:00 / 0:00</div>
+  <button class="btn-export" onclick="exportMix()">⬇ Export Mix</button>
+</div>
+
+<script>
+const API = 'http://localhost:58432';
+const STEMS = ['vocals','drums','bass','other'];
+const COLORS = { vocals:'#9a7aff', drums:'#ff7a5a', bass:'#5affb0', other:'#ffca5a' };
+
+const ctx = new AudioContext();
+const channels = {};
+let isPlaying = false;
+let startTime = 0;
+let pauseOffset = 0;
+let maxDuration = 0;
+let rafId = null;
+let currentJobId = null;
+let pollInterval = null;
+
+// ── Build mixer channels ──────────────────────────────────────────────────────
+function buildMixer() {
+  const mixer = document.getElementById('mixer');
+  mixer.innerHTML = '';
+  STEMS.forEach(name => {
+    const ch = {
+      name,
+      gainNode: ctx.createGain(),
+      buffer: null,
+      source: null,
+      muted: false,
+      soloed: false,
+      volume: 100,
+      peakL: 0, peakR: 0,
+    };
+    ch.gainNode.connect(ctx.destination);
+    channels[name] = ch;
+    mixer.appendChild(buildChannelEl(name));
+  });
+}
+
+function buildChannelEl(name) {
+  const color = COLORS[name];
+  const div = document.createElement('div');
+  div.className = 'channel';
+  div.id = `ch-${name}`;
+  div.innerHTML = `
+    <div class="ch-name">${name}</div>
+    <canvas class="waveform-canvas" id="wf-${name}" width="120" height="80"></canvas>
+    <div class="vu-wrap">
+      <div class="vu-bar"><div class="vu-fill" id="vuL-${name}" style="background:${color}"></div><div class="vu-peak" id="vuPL-${name}" style="bottom:100%"></div></div>
+      <div class="vu-bar"><div class="vu-fill" id="vuR-${name}" style="background:${color}"></div><div class="vu-peak" id="vuPR-${name}" style="bottom:100%"></div></div>
+    </div>
+    <div class="fader-wrap">
+      <input type="range" class="fader" min="0" max="100" value="100"
+             oninput="setVolume('${name}', this.value)">
+      <span class="fader-val" id="fv-${name}">100</span>
+    </div>
+    <div class="ch-buttons">
+      <button class="btn-mute" id="mute-${name}" onclick="toggleMute('${name}')">M</button>
+      <button class="btn-solo" id="solo-${name}" onclick="toggleSolo('${name}')">S</button>
+    </div>
+    <button class="btn-load" onclick="loadFile('${name}')">LOAD FILE</button>
+  `;
+
+  // Drag & drop
+  div.addEventListener('dragover', e => e.preventDefault());
+  div.addEventListener('drop', async e => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file) await loadAudioFile(name, file);
+  });
+
+  return div;
+}
+
+// ── Audio loading ─────────────────────────────────────────────────────────────
+async function loadAudioUrl(name, url) {
+  const resp = await fetch(url);
+  const buf = await resp.arrayBuffer();
+  const decoded = await ctx.decodeAudioData(buf);
+  channels[name].buffer = decoded;
+  if (decoded.duration > maxDuration) maxDuration = decoded.duration;
+  drawWaveform(name, decoded);
+}
+
+function loadFile(name) {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'audio/*';
+  inp.onchange = async () => { if (inp.files[0]) await loadAudioFile(name, inp.files[0]); };
+  inp.click();
+}
+
+async function loadAudioFile(name, file) {
+  const buf = await file.arrayBuffer();
+  const decoded = await ctx.decodeAudioData(buf);
+  channels[name].buffer = decoded;
+  if (decoded.duration > maxDuration) maxDuration = decoded.duration;
+  drawWaveform(name, decoded);
+}
+
+// ── Waveform drawing ──────────────────────────────────────────────────────────
+function drawWaveform(name, buffer) {
+  const canvas = document.getElementById(`wf-${name}`);
+  const c = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const data = buffer.getChannelData(0);
+  const step = Math.floor(data.length / W);
+  const color = COLORS[name];
+
+  c.clearRect(0, 0, W, H);
+  c.fillStyle = '#0a0a14';
+  c.fillRect(0, 0, W, H);
+
+  c.strokeStyle = color;
+  c.lineWidth = 1;
+  c.beginPath();
+  for (let x = 0; x < W; x++) {
+    let max = 0;
+    for (let j = 0; j < step; j++) {
+      const v = Math.abs(data[x * step + j] || 0);
+      if (v > max) max = v;
+    }
+    const h = max * H * 0.9;
+    c.moveTo(x, H / 2 - h / 2);
+    c.lineTo(x, H / 2 + h / 2);
+  }
+  c.stroke();
+}
+
+function updateWaveformPlayhead(name, progress) {
+  const ch = channels[name];
+  if (!ch.buffer) return;
+  const canvas = document.getElementById(`wf-${name}`);
+  const c = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const data = ch.buffer.getChannelData(0);
+  const step = Math.floor(data.length / W);
+  const color = COLORS[name];
+  const playX = Math.floor(progress * W);
+
+  c.clearRect(0, 0, W, H);
+  c.fillStyle = '#0a0a14';
+  c.fillRect(0, 0, W, H);
+
+  for (let x = 0; x < W; x++) {
+    let max = 0;
+    for (let j = 0; j < step; j++) {
+      const v = Math.abs(data[x * step + j] || 0);
+      if (v > max) max = v;
+    }
+    const h = max * H * 0.9;
+    c.strokeStyle = x < playX ? color : '#2a2a3a';
+    c.lineWidth = 1;
+    c.beginPath();
+    c.moveTo(x, H / 2 - h / 2);
+    c.lineTo(x, H / 2 + h / 2);
+    c.stroke();
+  }
+
+  // Playhead line
+  c.strokeStyle = '#ffffff';
+  c.lineWidth = 1;
+  c.beginPath();
+  c.moveTo(playX, 0);
+  c.lineTo(playX, H);
+  c.stroke();
+}
+
+// ── Transport ─────────────────────────────────────────────────────────────────
+function togglePlay() {
+  if (ctx.state === 'suspended') ctx.resume();
+  if (isPlaying) pause(); else play();
+}
+
+function play() {
+  STEMS.forEach(name => {
+    const ch = channels[name];
+    if (!ch.buffer) return;
+    if (ch.source) { try { ch.source.stop(); } catch(e){} }
+    const src = ctx.createBufferSource();
+    src.buffer = ch.buffer;
+    src.connect(ch.gainNode);
+    src.start(0, pauseOffset);
+    ch.source = src;
+  });
+  startTime = ctx.currentTime - pauseOffset;
+  isPlaying = true;
+  document.getElementById('btn-play').textContent = '⏸';
+  document.getElementById('btn-play').classList.add('playing');
+  animateTransport();
+}
+
+function pause() {
+  pauseOffset = ctx.currentTime - startTime;
+  STEMS.forEach(name => {
+    const ch = channels[name];
+    if (ch.source) { try { ch.source.stop(); } catch(e){} ch.source = null; }
+  });
+  isPlaying = false;
+  document.getElementById('btn-play').textContent = '▶';
+  document.getElementById('btn-play').classList.remove('playing');
+  cancelAnimationFrame(rafId);
+}
+
+function stopAll() {
+  pause();
+  pauseOffset = 0;
+  document.getElementById('progress-fill').style.width = '0%';
+  document.getElementById('time-display').textContent = '0:00 / ' + fmt(maxDuration);
+  STEMS.forEach(name => { if (channels[name].buffer) updateWaveformPlayhead(name, 0); });
+}
+
+function seekTo(e) {
+  const rect = document.getElementById('progress-wrap').getBoundingClientRect();
+  const ratio = (e.clientX - rect.left) / rect.width;
+  pauseOffset = ratio * maxDuration;
+  if (isPlaying) { pause(); play(); }
+  else {
+    document.getElementById('progress-fill').style.width = (ratio * 100) + '%';
+    STEMS.forEach(name => { if (channels[name].buffer) updateWaveformPlayhead(name, ratio); });
+  }
+}
+
+function animateTransport() {
+  rafId = requestAnimationFrame(animateTransport);
+  const elapsed = ctx.currentTime - startTime;
+  const progress = Math.min(elapsed / maxDuration, 1);
+  document.getElementById('progress-fill').style.width = (progress * 100) + '%';
+  document.getElementById('time-display').textContent = fmt(elapsed) + ' / ' + fmt(maxDuration);
+  STEMS.forEach(name => { if (channels[name].buffer) updateWaveformPlayhead(name, progress); });
+  if (progress >= 1) stopAll();
+}
+
+function fmt(s) {
+  s = Math.max(0, Math.floor(s));
+  return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+}
+
+// ── Channel controls ──────────────────────────────────────────────────────────
+function setVolume(name, val) {
+  const v = parseInt(val);
+  channels[name].volume = v;
+  channels[name].gainNode.gain.value = channels[name].muted ? 0 : v / 100;
+  document.getElementById(`fv-${name}`).textContent = v;
+}
+
+function toggleMute(name) {
+  const ch = channels[name];
+  ch.muted = !ch.muted;
+  ch.gainNode.gain.value = ch.muted ? 0 : ch.volume / 100;
+  document.getElementById(`mute-${name}`).classList.toggle('active', ch.muted);
+}
+
+function toggleSolo(name) {
+  const ch = channels[name];
+  ch.soloed = !ch.soloed;
+  document.getElementById(`solo-${name}`).classList.toggle('active', ch.soloed);
+  const anySolo = STEMS.some(n => channels[n].soloed);
+  STEMS.forEach(n => {
+    const gain = anySolo ? (channels[n].soloed ? channels[n].volume / 100 : 0) :
+                           (channels[n].muted ? 0 : channels[n].volume / 100);
+    channels[n].gainNode.gain.value = gain;
+  });
+}
+
+// ── Export ────────────────────────────────────────────────────────────────────
+async function exportMix() {
+  if (!STEMS.some(n => channels[n].buffer)) { alert('No stems loaded.'); return; }
+  const offCtx = new OfflineAudioContext(2, Math.ceil(maxDuration * 44100), 44100);
+  STEMS.forEach(name => {
+    const ch = channels[name];
+    if (!ch.buffer) return;
+    const gain = offCtx.createGain();
+    gain.gain.value = ch.muted ? 0 : ch.volume / 100;
+    gain.connect(offCtx.destination);
+    const src = offCtx.createBufferSource();
+    src.buffer = ch.buffer;
+    src.connect(gain);
+    src.start(0);
+  });
+  const rendered = await offCtx.startRendering();
+  const wav = audioBufferToWav(rendered);
+  const blob = new Blob([wav], { type: 'audio/wav' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'stemforge_mix.wav';
+  a.click();
+}
+
+function audioBufferToWav(buffer) {
+  const numCh = buffer.numberOfChannels;
+  const len = buffer.length * numCh * 2 + 44;
+  const arr = new ArrayBuffer(len);
+  const view = new DataView(arr);
+  const sr = buffer.sampleRate;
+  const write = (o, s) => { for (let i=0;i<s.length;i++) view.setUint8(o+i,s.charCodeAt(i)); };
+  write(0,'RIFF'); view.setUint32(4,len-8,true); write(8,'WAVE');
+  write(12,'fmt '); view.setUint32(16,16,true); view.setUint16(20,1,true);
+  view.setUint16(22,numCh,true); view.setUint32(24,sr,true);
+  view.setUint32(28,sr*numCh*2,true); view.setUint16(32,numCh*2,true);
+  view.setUint16(34,16,true); write(36,'data');
+  view.setUint32(40,buffer.length*numCh*2,true);
+  let offset = 44;
+  for (let i=0;i<buffer.length;i++) {
+    for (let c=0;c<numCh;c++) {
+      const s = Math.max(-1,Math.min(1,buffer.getChannelData(c)[i]));
+      view.setInt16(offset, s<0?s*0x8000:s*0x7FFF, true);
+      offset += 2;
+    }
+  }
+  return arr;
+}
+
+// ── Generate via API ──────────────────────────────────────────────────────────
+async function startGenerate() {
+  const prompt = document.getElementById('prompt-input').value.trim();
+  if (!prompt) { alert('Enter a prompt first.'); return; }
+  const backend = document.getElementById('backend-select').value;
+  const duration = parseInt(document.getElementById('duration-input').value);
+
+  document.getElementById('btn-gen').disabled = true;
+  setStatus('generating…', 'active');
+
+  try {
+    const res = await fetch(`${API}/generate`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ prompt, backend, duration, split_stems: true }),
+    });
+    const { job_id } = await res.json();
+    currentJobId = job_id;
+    pollInterval = setInterval(() => pollJob(job_id), 2000);
+  } catch(e) {
+    setStatus('API offline', 'error');
+    document.getElementById('btn-gen').disabled = false;
+  }
+}
+
+async function pollJob(jobId) {
+  try {
+    const res = await fetch(`${API}/jobs/${jobId}`);
+    const job = await res.json();
+    setStatus(job.status, job.status === 'done' ? 'active' : job.status === 'error' ? 'error' : '');
+    if (job.status === 'done') {
+      clearInterval(pollInterval);
+      document.getElementById('btn-gen').disabled = false;
+      maxDuration = 0;
+      if (job.stems) {
+        for (const [name, url] of Object.entries(job.stems)) {
+          if (channels[name]) await loadAudioUrl(name, API + url);
+        }
+      }
+      setStatus('ready', 'active');
+    } else if (job.status === 'error') {
+      clearInterval(pollInterval);
+      document.getElementById('btn-gen').disabled = false;
+    }
+  } catch(e) {}
+}
+
+function setStatus(text, cls) {
+  const badge = document.getElementById('status-badge');
+  badge.textContent = text;
+  badge.className = 'status-badge' + (cls ? ' ' + cls : '');
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+buildMixer();
+</script>
+</body>
+</html>
