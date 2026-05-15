@@ -1,0 +1,59 @@
+name: Build StemForge DMG
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller create-dmg pillow
+
+      - name: Build app with PyInstaller
+        run: |
+          pyinstaller stemforge.spec
+
+      - name: Create placeholder DMG background
+        run: |
+          mkdir -p assets
+          python - <<EOF
+from PIL import Image
+img = Image.new('RGB', (1200, 800), color=(20,20,20))
+img.save('assets/dmg_background.png')
+EOF
+
+      - name: Create DMG
+        run: |
+          create-dmg \
+            --volname "StemForge" \
+            --window-pos 200 120 \
+            --window-size 800 400 \
+            --icon-size 100 \
+            --icon "StemForge.app" 200 190 \
+            --hide-extension "StemForge.app" \
+            --app-drop-link 600 185 \
+            --background assets/dmg_background.png \
+            "StemForge.dmg" \
+            "dist/"
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: StemForge-macOS
+          path: StemForge.dmg
