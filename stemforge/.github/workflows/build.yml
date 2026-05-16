@@ -1,0 +1,106 @@
+name: Build StemForge DMG
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build-dmg:
+    runs-on: macos-14
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install system dependencies
+        run: |
+          brew install ffmpeg create-dmg
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install demucs
+          pip install audiocraft
+          pip install stable-audio-tools
+          pip install fastapi uvicorn[standard]
+          pip install numpy scipy librosa soundfile
+
+      - name: Build .app bundle with PyInstaller
+        run: |
+          pyinstaller stemforge.spec --noconfirm --clean
+
+      - name: Copy resources into .app
+        run: |
+          cp -r src/ dist/StemForge.app/Contents/Resources/src/
+          cp setup_models.py dist/StemForge.app/Contents/Resources/
+          cp api_server_v2.py dist/StemForge.app/Contents/Resources/
+          cp multi_generator.py dist/StemForge.app/Contents/Resources/
+          cp stem_splitter.py dist/StemForge.app/Contents/Resources/
+
+      - name: Generate app icon
+        run: |
+          mkdir -p icon.iconset
+          python scripts/make_icon.py
+          iconutil -c icns icon.iconset -o dist/StemForge.app/Contents/Resources/AppIcon.icns
+          /usr/libexec/PlistBuddy -c \
+            "Set :CFBundleIconFile AppIcon" \
+            dist/StemForge.app/Contents/Info.plist
+
+      - name: Sign app (ad-hoc, no Developer ID needed)
+        run: |
+          codesign --force --deep --sign - dist/StemForge.app
+
+      - name: Create DMG
+        run: |
+          mkdir -p dist/dmg
+          cp -r dist/StemForge.app dist/dmg/
+
+          create-dmg \
+            --volname "StemForge 1.0.0" \
+            --volicon dist/StemForge.app/Contents/Resources/AppIcon.icns \
+            --background assets/dmg_background.png \
+            --window-pos 200 120 \
+            --window-size 560 400 \
+            --icon-size 100 \
+            --icon "StemForge.app" 140 195 \
+            --hide-extension "StemForge.app" \
+            --app-drop-link 420 195 \
+            "dist/StemForge-1.0.0-macOS.dmg" \
+            "dist/dmg/"
+
+      - name: Upload DMG as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: StemForge-1.0.0-macOS
+          path: dist/StemForge-1.0.0-macOS.dmg
+          retention-days: 30
+
+      - name: Create GitHub Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/StemForge-1.0.0-macOS.dmg
+          name: StemForge ${{ github.ref_name }}
+          body: |
+            ## StemForge ${{ github.ref_name }}
+
+            ### Installazione
+            1. Scarica `StemForge-1.0.0-macOS.dmg`
+            2. Apri il DMG e trascina StemForge in Applicazioni
+            3. Al primo avvio scarica i modelli AI (~3 GB)
+            4. Il mixer si apre su http://localhost:58432
+
+            ### Requisiti
+            - macOS 13 Ventura o superiore
+            - Apple Silicon (M1/M2/M3) o Intel
+            - ~5 GB di spazio libero
